@@ -1,0 +1,95 @@
+╔════════════════════════════════════════════════════════════╗
+║                                                            ║
+║           WALLET TRACKER - INSTALAÇÃO LOCAL                ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝
+
+📦 INSTALAÇÃO RÁPIDA (5 MINUTOS)
+
+1️⃣ INSTALAR PYTHON 3.11
+   - Windows: https://www.python.org/downloads/
+   - Mac: brew install python@3.11
+   - Linux: sudo apt install python3.11
+
+2️⃣ INSTALAR DEPENDÊNCIAS
+
+   Windows:
+   --------
+   python -m venv venv
+   venv\Scripts\activate
+   pip install -r requirements.txt
+
+   Mac/Linux:
+   ----------
+   python3.11 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+
+3️⃣ INICIAR APLICAÇÃO
+
+   Windows:
+   --------
+   Duplo clique em: START_WINDOWS.bat
+   
+   Ou no terminal:
+   venv\Scripts\activate
+   python run_local.py
+
+   Mac/Linux:
+   ----------
+   ./START_MAC_LINUX.sh
+   
+   Ou no terminal:
+   source venv/bin/activate
+   python run_local.py
+
+4️⃣ ACESSAR NO NAVEGADOR
+
+   http://localhost:5000
+
+   Login:
+   - Usuário: admin
+   - Senha: admin123
+
+═══════════════════════════════════════════════════════════
+
+✅ PRONTO! Agora configure:
+
+1. Clique em Settings (engrenagem)
+2. Cole sua API Key do Octav.fi
+3. Clique em Save Settings
+4. Vá para Wallet Management
+5. Adicione suas wallets
+6. Clique em Sync em cada wallet
+7. Veja os gráficos no Dashboard!
+
+═══════════════════════════════════════════════════════════
+
+📚 DOCUMENTAÇÃO COMPLETA
+
+- INSTALACAO_LOCAL.md - Guia detalhado de instalação
+- WALLET_TRACKER_COMPLETE.md - Manual completo de uso
+
+═══════════════════════════════════════════════════════════
+
+💾 SEUS DADOS
+
+Tudo fica salvo em: data/app.db
+
+⚠️ IMPORTANTE: Faça backup deste arquivo regularmente!
+
+═══════════════════════════════════════════════════════════
+
+🆘 PROBLEMAS?
+
+1. Leia INSTALACAO_LOCAL.md (seção Troubleshooting)
+2. Verifique se Python 3.11 está instalado
+3. Verifique se as dependências foram instaladas
+4. Tente em um terminal novo
+
+═══════════════════════════════════════════════════════════
+
+🎉 BOM USO!
+
+Desenvolvido com ❤️ por Manus AI
+

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocol Balance History - Wallet Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #1a202c;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 16px;
+        }
+
+        .controls {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .control-group select,
+        .control-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+
+        .control-group select:focus,
+        .control-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .control-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .chart-header {
+            margin-bottom: 20px;
+        }
+
+        .chart-header h2 {
+            color: #1a202c;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .chart-header p {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 500px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c53030;
+        }
+
+        .info {
+            background: #bee3f8;
+            color: #2c5282;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3182ce;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+
+        .stat-card p {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            transition: background 0.2s;
+        }
+
+        .back-link:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        @media (max-width: 768px) {
+            .control-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-wrapper {
+                height: 350px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Dashboard</a>
+        
+        <div class="header">
+            <h1>📊 Protocol Balance History</h1>
+            <p>Visualize how your balance evolves across different DeFi protocols over time</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-row">
+                <div class="control-group">
+                    <label for="walletSelect">Select Wallet</label>
+                    <select id="walletSelect">
+                        <option value="">Loading wallets...</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="daysInput">Days of History</label>
+                    <input type="number" id="daysInput" value="30" min="1" max="365">
+                </div>
+                <div class="control-group">
+                    <label style="opacity: 0;">Action</label>
+                    <button class="btn" id="loadBtn" onclick="loadProtocolHistory()">Load Chart</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="errorContainer"></div>
+        <div id="statsContainer"></div>
+
+        <div class="chart-container">
+            <div class="chart-header">
+                <h2>Balance Evolution by Protocol</h2>
+                <p id="chartSubtitle">Select a wallet and click "Load Chart" to view data</p>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="protocolChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let wallets = [];
+
+        // Color palette for protocols
+        const colors = [
+            '#667eea', '#764ba2', '#f093fb', '#4facfe',
+            '#43e97b', '#fa709a', '#fee140', '#30cfd0',
+            '#a8edea', '#fed6e3', '#c471f5', '#fa8bff'
+        ];
+
+        // Load wallets on page load
+        async function loadWallets() {
+            try {
+                const response = await fetch('/api/wallets/');
+                const data = await response.json();
+                wallets = data.wallets;
+
+                const select = document.getElementById('walletSelect');
+                select.innerHTML = '<option value="">-- Select a wallet --</option>';
+                
+                wallets.forEach(wallet => {
+                    const option = document.createElement('option');
+                    option.value = wallet.id;
+                    option.textContent = `${wallet.name || wallet.address.substring(0, 10) + '...'} (${wallet.address.substring(0, 6)}...${wallet.address.slice(-4)})`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                showError('Failed to load wallets: ' + error.message);
+            }
+        }
+
+        async function loadProtocolHistory() {
+            const walletId = document.getElementById('walletSelect').value;
+            const days = document.getElementById('daysInput').value;
+
+            if (!walletId) {
+                showError('Please select a wallet first');
+                return;
+            }
+
+            const loadBtn = document.getElementById('loadBtn');
+            loadBtn.disabled = true;
+            loadBtn.textContent = 'Loading...';
+
+            document.getElementById('errorContainer').innerHTML = '';
+            document.getElementById('chartSubtitle').textContent = 'Loading data...';
+
+            try {
+                const response = await fetch(`/api/wallets/${walletId}/protocol-history/?days=${days}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                if (!data.history || data.history.length === 0) {
+                    showError('No history data available for this wallet. Try syncing the wallet first.');
+                    return;
+                }
+
+                renderChart(data, walletId);
+                showStats(data);
+
+            } catch (error) {
+                showError('Failed to load protocol history: ' + error.message);
+            } finally {
+                loadBtn.disabled = false;
+                loadBtn.textContent = 'Load Chart';
+            }
+        }
+
+        function renderChart(data, walletId) {
+            const wallet = wallets.find(w => w.id == walletId);
+            const walletName = wallet ? wallet.name || wallet.address.substring(0, 10) + '...' : 'Wallet';
+
+            document.getElementById('chartSubtitle').textContent = 
+                `${walletName} - Last ${data.history.length} records`;
+
+            // Prepare data for Chart.js
+            const labels = data.history.map(item => {
+                const date = new Date(item.timestamp);
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            });
+
+            const datasets = [];
+
+            // Add Net Worth line (bold, black)
+            datasets.push({
+                label: 'Net Worth (Total)',
+                data: data.history.map(item => item.networth),
+                borderColor: '#000000',
+                backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                borderWidth: 3,
+                tension: 0.4,
+                fill: false,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            });
+
+            // Add protocol lines
+            data.protocols.forEach((protocolKey, index) => {
+                const protocolData = data.history.map(item => {
+                    const protocol = item.protocols[protocolKey];
+                    return protocol ? protocol.value : 0;
+                });
+
+                // Get protocol name from first occurrence
+                let protocolName = protocolKey;
+                for (const item of data.history) {
+                    if (item.protocols[protocolKey]) {
+                        protocolName = item.protocols[protocolKey].name;
+                        break;
+                    }
+                }
+
+                datasets.push({
+                    label: protocolName,
+                    data: protocolData,
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: colors[index % colors.length] + '20',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: false,
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                });
+            });
+
+            // Destroy previous chart if exists
+            if (chart) {
+                chart.destroy();
+            }
+
+            // Create new chart
+            const ctx = document.getElementById('protocolChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 15,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: {
+                                size: 14
+                            },
+                            bodyFont: {
+                                size: 13
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += '$' + context.parsed.y.toLocaleString('en-US', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2
+                                    });
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Value (USD)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function showStats(data) {
+            if (!data.history || data.history.length === 0) return;
+
+            const latest = data.history[data.history.length - 1];
+            const oldest = data.history[0];
+            const change = latest.networth - oldest.networth;
+            const changePercent = (change / oldest.networth * 100).toFixed(2);
+
+            const statsHtml = `
+                <div class="stats">
+                    <div class="stat-card">
+                        <h3>Current Net Worth</h3>
+                        <p>$${latest.networth.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Change</h3>
+                        <p>${change >= 0 ? '+' : ''}$${change.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Change %</h3>
+                        <p>${change >= 0 ? '+' : ''}${changePercent}%</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Protocols</h3>
+                        <p>${data.protocols.length}</p>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('statsContainer').innerHTML = statsHtml;
+        }
+
+        function showError(message) {
+            const errorHtml = `
+                <div class="error">
+                    <strong>Error:</strong> ${message}
+                </div>
+            `;
+            document.getElementById('errorContainer').innerHTML = errorHtml;
+        }
+
+        // Load wallets on page load
+        loadWallets();
+    </script>
+</body>
+</html>
+
