@@ -18,6 +18,7 @@ from src.routes.settings import settings_bp
 from src.routes.backup import backup_bp
 from src.routes.portfolio import portfolio_bp
 from src.routes.quota import quota_bp
+from src.routes.manual_balance import manual_balance_bp
 from src.scheduler import init_scheduler
 
 # Load environment variables
@@ -102,6 +103,7 @@ app.register_blueprint(settings_bp, url_prefix='/api/settings')
 app.register_blueprint(backup_bp, url_prefix='/api/backup')
 app.register_blueprint(portfolio_bp)
 app.register_blueprint(quota_bp)
+app.register_blueprint(manual_balance_bp)
 
 # Debug blueprint removed for production
 
