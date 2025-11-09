@@ -53,13 +53,25 @@ def add_cash_flow(wallet_id):
         description = data.get('description', '')
         timestamp = datetime.fromisoformat(data['timestamp']) if data.get('timestamp') else datetime.utcnow()
         
-        # Get current net worth and calculate quota value
-        latest_balance = BalanceHistory.query.filter_by(wallet_id=wallet_id).order_by(desc(BalanceHistory.timestamp)).first()
+        # Get net worth at the time of the cash flow
+        # First try to find balance at or before the cash flow date
+        balance_at_date = BalanceHistory.query.filter(
+            BalanceHistory.wallet_id == wallet_id,
+            BalanceHistory.timestamp <= timestamp
+        ).order_by(desc(BalanceHistory.timestamp)).first()
         
-        if not latest_balance:
-            return jsonify({'error': 'No balance history found. Please sync wallet first.'}), 400
+        # If no automatic balance found, try manual balance
+        if not balance_at_date:
+            from src.models.manual_balance import ManualBalance
+            balance_at_date = ManualBalance.query.filter(
+                ManualBalance.wallet_id == wallet_id,
+                ManualBalance.timestamp <= timestamp
+            ).order_by(desc(ManualBalance.timestamp)).first()
         
-        current_networth = latest_balance.networth
+        if not balance_at_date:
+            return jsonify({'error': f'No balance history found at or before {timestamp.strftime("%Y-%m-%d")}. Please add a balance entry for that date first.'}), 400
+        
+        current_networth = balance_at_date.networth
         
         # Calculate current quota value
         if wallet.current_quota_quantity > 0:
