@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func
 
 from src.models.models import db, Wallet, WalletPermission, BalanceHistory, ProtocolBalance, TokenBalance
+from src.models.manual_balance import ManualBalance
 from src.services.octav_service import OctavService
 
 wallets_bp = Blueprint('wallets', __name__)
@@ -114,20 +115,49 @@ def get_balance_history(wallet_id):
         # Calculate date threshold
         date_threshold = datetime.utcnow() - timedelta(days=days)
         
-        # Query balance history
-        history = BalanceHistory.query.filter(
+        # Query automatic balance history
+        auto_history = BalanceHistory.query.filter(
             BalanceHistory.wallet_id == wallet_id,
             BalanceHistory.timestamp >= date_threshold
         ).order_by(BalanceHistory.timestamp.desc()).limit(limit).all()
         
-        print(f"   ✓ Found {len(history)} records (last {days} days)")
+        # Query manual balance history
+        manual_history = ManualBalance.query.filter(
+            ManualBalance.wallet_id == wallet_id,
+            ManualBalance.timestamp >= date_threshold
+        ).all()
+        
+        # Merge both histories
+        merged_history = []
+        
+        # Add automatic history
+        for h in auto_history:
+            merged_history.append({
+                'id': f'auto_{h.id}',
+                'timestamp': h.timestamp.isoformat(),
+                'networth': h.networth,
+                'source': 'automatic'
+            })
+        
+        # Add manual history
+        for h in manual_history:
+            merged_history.append({
+                'id': f'manual_{h.id}',
+                'timestamp': h.timestamp.isoformat(),
+                'networth': h.networth,
+                'source': 'manual'
+            })
+        
+        # Sort by timestamp descending
+        merged_history.sort(key=lambda x: x['timestamp'], reverse=True)
+        
+        # Apply limit after merging
+        merged_history = merged_history[:limit]
+        
+        print(f"   ✓ Found {len(auto_history)} automatic + {len(manual_history)} manual records (last {days} days)")
         
         result = {
-            'history': [{
-                'id': h.id,
-                'timestamp': h.timestamp.isoformat(),
-                'networth': h.networth
-            } for h in history]
+            'history': merged_history
         }
         
         return jsonify(result), 200

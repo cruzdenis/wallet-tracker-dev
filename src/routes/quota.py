@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from datetime import datetime
 from src.models.models import db, Wallet, CashFlow, QuotaHistory, BalanceHistory
+from src.models.manual_balance import ManualBalance
 from sqlalchemy import desc
 
 quota_bp = Blueprint('quota', __name__, url_prefix='/api/quota')
@@ -171,25 +172,53 @@ def get_quota_history(wallet_id):
             .limit(limit)\
             .all()
         
-        # Also include balance history to calculate quota value on the fly
-        balance_history = BalanceHistory.query.filter_by(wallet_id=wallet_id)\
+        # Get automatic balance history
+        auto_balance_history = BalanceHistory.query.filter_by(wallet_id=wallet_id)\
             .order_by(BalanceHistory.timestamp)\
             .limit(limit)\
             .all()
         
+        # Get manual balance history
+        manual_balance_history = ManualBalance.query.filter_by(wallet_id=wallet_id)\
+            .order_by(ManualBalance.timestamp)\
+            .all()
+        
+        # Merge both histories
+        all_balances = []
+        
+        # Add automatic balances
+        for balance in auto_balance_history:
+            all_balances.append({
+                'timestamp': balance.timestamp,
+                'networth': balance.networth,
+                'source': 'automatic'
+            })
+        
+        # Add manual balances
+        for balance in manual_balance_history:
+            all_balances.append({
+                'timestamp': balance.timestamp,
+                'networth': balance.networth,
+                'source': 'manual'
+            })
+        
+        # Sort by timestamp
+        all_balances.sort(key=lambda x: x['timestamp'])
+        
         # Calculate quota value for each balance point
         history_data = []
-        for balance in balance_history:
+        for balance in all_balances:
             if wallet.current_quota_quantity > 0:
-                quota_value = balance.networth / wallet.current_quota_quantity
+                quota_value = balance['networth'] / wallet.current_quota_quantity
             else:
                 quota_value = wallet.initial_quota_value
             
             history_data.append({
-                'timestamp': balance.timestamp.isoformat(),
+                'timestamp': balance['timestamp'].isoformat(),
                 'quota_value': quota_value,
-                'networth': balance.networth,
-                'quota_quantity': wallet.current_quota_quantity
+                'networth': balance['networth'],
+                'quota_quantity': wallet.current_quota_quantity,
+                'source': balance['source']
             })
         
         # Calculate performance metrics
