@@ -217,11 +217,27 @@ def get_quota_history(wallet_id):
         # Sort by timestamp
         all_balances.sort(key=lambda x: x['timestamp'])
         
+        # Get all cash flows to track quota quantity changes over time
+        cash_flows = CashFlow.query.filter_by(wallet_id=wallet_id).order_by(CashFlow.timestamp).all()
+        
         # Calculate quota value for each balance point
         history_data = []
         for balance in all_balances:
-            if wallet.current_quota_quantity > 0:
-                quota_value = balance['networth'] / wallet.current_quota_quantity
+            # Calculate quota quantity at this point in time
+            # Start with initial quantity (0 or from first cash flow)
+            quota_quantity_at_time = 0
+            
+            # Add up all cash flows that happened before or at this balance timestamp
+            for cf in cash_flows:
+                if cf.timestamp <= balance['timestamp']:
+                    if cf.type == 'in':
+                        quota_quantity_at_time += cf.quotas_issued
+                    else:
+                        quota_quantity_at_time -= cf.quotas_issued
+            
+            # Calculate quota value at this point
+            if quota_quantity_at_time > 0:
+                quota_value = balance['networth'] / quota_quantity_at_time
             else:
                 quota_value = wallet.initial_quota_value
             
@@ -229,7 +245,7 @@ def get_quota_history(wallet_id):
                 'timestamp': balance['timestamp'].isoformat(),
                 'quota_value': quota_value,
                 'networth': balance['networth'],
-                'quota_quantity': wallet.current_quota_quantity,
+                'quota_quantity': quota_quantity_at_time,
                 'source': balance['source']
             })
         
@@ -244,7 +260,7 @@ def get_quota_history(wallet_id):
             performance_pct = 0
         
         # Calculate total invested (cash in - cash out)
-        cash_flows = CashFlow.query.filter_by(wallet_id=wallet_id).all()
+        # cash_flows already loaded above
         total_cash_in = sum(cf.amount for cf in cash_flows if cf.type == 'in')
         total_cash_out = sum(cf.amount for cf in cash_flows if cf.type == 'out')
         total_invested = total_cash_in - total_cash_out
