@@ -285,23 +285,30 @@ def get_protocol_history(wallet_id):
         from datetime import datetime, timedelta
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        # Get balance history
-        balance_records = BalanceHistory.query.filter(
+        # Get automatic balance history
+        auto_balance_records = BalanceHistory.query.filter(
             BalanceHistory.wallet_id == wallet_id,
             BalanceHistory.timestamp >= cutoff_date
         ).order_by(BalanceHistory.timestamp.asc()).limit(limit).all()
         
-        if not balance_records:
+        # Get manual balance history
+        manual_balance_records = ManualBalance.query.filter(
+            ManualBalance.wallet_id == wallet_id,
+            ManualBalance.timestamp >= cutoff_date
+        ).order_by(ManualBalance.timestamp.asc()).all()
+        
+        if not auto_balance_records and not manual_balance_records:
             print(f"   ⚠ No balance history found")
             return jsonify({'history': [], 'protocols': []}), 200
         
-        print(f"   ✓ Found {len(balance_records)} balance records")
+        print(f"   ✓ Found {len(auto_balance_records)} automatic + {len(manual_balance_records)} manual balance records")
         
         # Build history with protocol breakdown
         history = []
         all_protocols = set()
         
-        for record in balance_records:
+        # Process automatic balance records
+        for record in auto_balance_records:
             # Get protocol balances for this record
             protocol_balances = ProtocolBalance.query.filter_by(
                 balance_history_id=record.id
@@ -320,8 +327,28 @@ def get_protocol_history(wallet_id):
             history.append({
                 'timestamp': record.timestamp.isoformat(),
                 'networth': record.networth,
-                'protocols': protocols_dict
+                'protocols': protocols_dict,
+                'source': 'automatic'
             })
+        
+        # Process manual balance records (no protocol breakdown)
+        for record in manual_balance_records:
+            all_protocols.add('manual_entry')
+            
+            history.append({
+                'timestamp': record.timestamp.isoformat(),
+                'networth': record.networth,
+                'protocols': {
+                    'manual_entry': {
+                        'name': 'Manual Entry',
+                        'value': record.networth
+                    }
+                },
+                'source': 'manual'
+            })
+        
+        # Sort history by timestamp
+        history.sort(key=lambda x: x['timestamp'])
         
         print(f"   ✓ Found {len(all_protocols)} unique protocols")
         
