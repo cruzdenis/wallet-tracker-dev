@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from src.models.models import Wallet, BalanceHistory, WalletPermission
+from src.models.manual_balance import ManualBalance
 from sqlalchemy import func
 from datetime import datetime, timedelta
 
@@ -27,14 +28,22 @@ def get_portfolio_history():
         # Get cutoff date
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        # Get all balance history for accessible wallets
+        # Get all balance history for accessible wallets (automatic)
         history_records = BalanceHistory.query.filter(
             BalanceHistory.wallet_id.in_(wallet_ids),
             BalanceHistory.timestamp >= cutoff_date
-        ).order_by(BalanceHistory.timestamp.asc()).limit(limit).all()
+        ).order_by(BalanceHistory.timestamp.asc()).all()
+        
+        # Get manual balance history for accessible wallets
+        manual_records = ManualBalance.query.filter(
+            ManualBalance.wallet_id.in_(wallet_ids),
+            ManualBalance.timestamp >= cutoff_date
+        ).order_by(ManualBalance.timestamp.asc()).all()
         
         # Group by timestamp and sum networth
         timestamp_totals = {}
+        
+        # Add automatic balance history
         for record in history_records:
             # Round timestamp to nearest hour for grouping
             ts_key = record.timestamp.replace(minute=0, second=0, microsecond=0)
@@ -48,6 +57,22 @@ def get_portfolio_history():
                 }
             
             timestamp_totals[ts_str]['networth'] += record.networth
+            timestamp_totals[ts_str]['count'] += 1
+        
+        # Add manual balance history
+        for record in manual_records:
+            # Round timestamp to nearest hour for grouping
+            ts_key = record.timestamp.replace(minute=0, second=0, microsecond=0)
+            ts_str = ts_key.isoformat()
+            
+            if ts_str not in timestamp_totals:
+                timestamp_totals[ts_str] = {
+                    'timestamp': ts_str,
+                    'networth': 0,
+                    'count': 0
+                }
+            
+            timestamp_totals[ts_str]['networth'] += record.balance
             timestamp_totals[ts_str]['count'] += 1
         
         # Convert to list and sort
