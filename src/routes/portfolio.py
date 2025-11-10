@@ -40,8 +40,9 @@ def get_portfolio_history():
             ManualBalance.timestamp >= cutoff_date
         ).order_by(ManualBalance.timestamp.asc()).all()
         
-        # Group by timestamp and sum networth
-        timestamp_totals = {}
+        # Group by timestamp and wallet_id to avoid duplicates
+        # Structure: {timestamp: {wallet_id: networth}}
+        timestamp_wallet_data = {}
         
         # Add automatic balance history
         for record in history_records:
@@ -49,31 +50,34 @@ def get_portfolio_history():
             ts_key = record.timestamp.replace(minute=0, second=0, microsecond=0)
             ts_str = ts_key.isoformat()
             
-            if ts_str not in timestamp_totals:
-                timestamp_totals[ts_str] = {
-                    'timestamp': ts_str,
-                    'networth': 0,
-                    'count': 0
-                }
+            if ts_str not in timestamp_wallet_data:
+                timestamp_wallet_data[ts_str] = {}
             
-            timestamp_totals[ts_str]['networth'] += record.networth
-            timestamp_totals[ts_str]['count'] += 1
+            # Store by wallet_id to track which wallets have data at this timestamp
+            timestamp_wallet_data[ts_str][record.wallet_id] = record.networth
         
-        # Add manual balance history
+        # Add manual balance history ONLY for wallets that don't have automatic data at that timestamp
         for record in manual_records:
             # Round timestamp to nearest hour for grouping
             ts_key = record.timestamp.replace(minute=0, second=0, microsecond=0)
             ts_str = ts_key.isoformat()
             
-            if ts_str not in timestamp_totals:
-                timestamp_totals[ts_str] = {
-                    'timestamp': ts_str,
-                    'networth': 0,
-                    'count': 0
-                }
+            if ts_str not in timestamp_wallet_data:
+                timestamp_wallet_data[ts_str] = {}
             
-            timestamp_totals[ts_str]['networth'] += record.balance
-            timestamp_totals[ts_str]['count'] += 1
+            # Only add manual balance if this wallet doesn't already have automatic data at this timestamp
+            if record.wallet_id not in timestamp_wallet_data[ts_str]:
+                timestamp_wallet_data[ts_str][record.wallet_id] = record.balance
+        
+        # Now sum up networth per timestamp
+        timestamp_totals = {}
+        for ts_str, wallet_data in timestamp_wallet_data.items():
+            total_networth = sum(wallet_data.values())
+            timestamp_totals[ts_str] = {
+                'timestamp': ts_str,
+                'networth': total_networth,
+                'wallet_count': len(wallet_data)
+            }
         
         # Convert to list and sort
         history = sorted(timestamp_totals.values(), key=lambda x: x['timestamp'])
@@ -101,5 +105,7 @@ def get_portfolio_history():
         
     except Exception as e:
         print(f"Error getting portfolio history: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
