@@ -46,6 +46,9 @@ def get_portfolio_history():
         
         # Add automatic balance history
         for record in history_records:
+            # Skip if timestamp is None
+            if not record.timestamp:
+                continue
             # Round timestamp to nearest hour for grouping
             ts_key = record.timestamp.replace(minute=0, second=0, microsecond=0)
             ts_str = ts_key.isoformat()
@@ -58,6 +61,9 @@ def get_portfolio_history():
         
         # Add manual balance history ONLY for wallets that don't have automatic data at that timestamp
         for record in manual_records:
+            # Skip if timestamp is None
+            if not record.timestamp:
+                continue
             # Round timestamp to nearest hour for grouping
             ts_key = record.timestamp.replace(minute=0, second=0, microsecond=0)
             ts_str = ts_key.isoformat()
