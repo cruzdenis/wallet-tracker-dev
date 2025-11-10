@@ -112,6 +112,11 @@ def get_portfolio_history():
     except Exception as e:
         print(f"Error getting portfolio history: {e}")
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        error_traceback = traceback.format_exc()
+        print(error_traceback)
+        return jsonify({
+            'error': str(e),
+            'error_type': type(e).__name__,
+            'traceback': error_traceback
+        }), 500
 
