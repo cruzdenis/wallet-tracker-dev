@@ -73,7 +73,7 @@ def get_portfolio_history():
             
             # Only add manual balance if this wallet doesn't already have automatic data at this timestamp
             if record.wallet_id not in timestamp_wallet_data[ts_str]:
-                timestamp_wallet_data[ts_str][record.wallet_id] = record.balance
+                timestamp_wallet_data[ts_str][record.wallet_id] = record.networth
         
         # Now sum up networth per timestamp
         timestamp_totals = {}

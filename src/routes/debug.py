@@ -67,7 +67,7 @@ def db_status():
                 'sample': [{
                     'id': mb.id,
                     'wallet_id': mb.wallet_id,
-                    'balance': mb.balance,
+                    'networth': mb.networth,
                     'timestamp': mb.timestamp.isoformat() if mb.timestamp else None
                 } for mb in manual_balances[:5]] if manual_balance_error is None else []
             }
