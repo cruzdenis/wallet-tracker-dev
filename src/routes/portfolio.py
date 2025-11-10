@@ -40,16 +40,16 @@ def get_portfolio_history():
             ManualBalance.timestamp >= cutoff_date
         ).order_by(ManualBalance.timestamp.asc()).all()
         
-        # Build a timeline of all wallet balances
-        # Structure: {wallet_id: [(timestamp, networth), ...]}
-        wallet_timelines = {wid: [] for wid in wallet_ids}
+        # Build a map of actual data points per wallet
+        # Structure: {wallet_id: {timestamp: networth}}
+        wallet_data = {wid: {} for wid in wallet_ids}
         
         # Add automatic balance history
         for record in history_records:
             if not record.timestamp:
                 continue
             ts_key = record.timestamp.replace(minute=0, second=0, microsecond=0)
-            wallet_timelines[record.wallet_id].append((ts_key, record.networth))
+            wallet_data[record.wallet_id][ts_key] = record.networth
         
         # Add manual balance history (only if no automatic data exists at that time)
         for record in manual_records:
@@ -57,23 +57,14 @@ def get_portfolio_history():
                 continue
             ts_key = record.timestamp.replace(minute=0, second=0, microsecond=0)
             
-            # Check if automatic data exists at this timestamp
-            has_auto_data = any(
-                ts == ts_key for ts, _ in wallet_timelines[record.wallet_id]
-            )
-            
-            if not has_auto_data:
-                wallet_timelines[record.wallet_id].append((ts_key, record.networth))
+            # Only add if no automatic data at this timestamp
+            if ts_key not in wallet_data[record.wallet_id]:
+                wallet_data[record.wallet_id][ts_key] = record.networth
         
-        # Sort each wallet's timeline
-        for wid in wallet_ids:
-            wallet_timelines[wid].sort(key=lambda x: x[0])
-        
-        # Get all unique timestamps across all wallets
+        # Get all unique timestamps where AT LEAST ONE wallet has actual data
         all_timestamps = set()
-        for timeline in wallet_timelines.values():
-            for ts, _ in timeline:
-                all_timestamps.add(ts)
+        for wid_data in wallet_data.values():
+            all_timestamps.update(wid_data.keys())
         
         if not all_timestamps:
             return jsonify({'history': [], 'stats': {}})
@@ -81,41 +72,27 @@ def get_portfolio_history():
         all_timestamps = sorted(all_timestamps)
         
         # Build forward-filled data for each wallet
-        # For each timestamp, use the last known value if wallet has no data at that time
-        wallet_forward_filled = {}
-        
-        for wid in wallet_ids:
-            timeline = wallet_timelines[wid]
-            if not timeline:
-                continue
-            
-            filled_data = {}
-            last_value = None
-            timeline_idx = 0
-            
-            for ts in all_timestamps:
-                # Check if wallet has data at this timestamp
-                if timeline_idx < len(timeline) and timeline[timeline_idx][0] == ts:
-                    last_value = timeline[timeline_idx][1]
-                    timeline_idx += 1
-                
-                # Use last known value (forward-fill)
-                if last_value is not None:
-                    filled_data[ts] = last_value
-            
-            wallet_forward_filled[wid] = filled_data
-        
-        # Now sum up all wallets at each timestamp
+        # For each timestamp where at least one wallet has data,
+        # use last known value for wallets without data at that time
         history = []
+        last_known_values = {wid: None for wid in wallet_ids}
+        
         for ts in all_timestamps:
+            # Update last known values for wallets that have data at this timestamp
+            for wid in wallet_ids:
+                if ts in wallet_data[wid]:
+                    last_known_values[wid] = wallet_data[wid][ts]
+            
+            # Calculate total using last known values (forward-fill)
             total = 0
             wallet_count = 0
             
             for wid in wallet_ids:
-                if wid in wallet_forward_filled and ts in wallet_forward_filled[wid]:
-                    total += wallet_forward_filled[wid][ts]
+                if last_known_values[wid] is not None:
+                    total += last_known_values[wid]
                     wallet_count += 1
             
+            # Only add point if at least one wallet has data
             if wallet_count > 0:
                 history.append({
                     'timestamp': ts.isoformat(),
