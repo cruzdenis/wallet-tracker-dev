@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify
 from flask_login import login_required, current_user
 from src.models.models import db, User, Wallet, BalanceHistory, AppSettings
+from src.models.manual_balance import ManualBalance
 
 debug_bp = Blueprint('debug', __name__)
 
@@ -17,6 +18,14 @@ def db_status():
         wallets = Wallet.query.all()
         balances = BalanceHistory.query.all()
         settings = AppSettings.query.first()
+        
+        # Check if ManualBalance table exists
+        manual_balances = []
+        manual_balance_error = None
+        try:
+            manual_balances = ManualBalance.query.all()
+        except Exception as e:
+            manual_balance_error = str(e)
         
         return jsonify({
             'database_status': 'connected',
@@ -50,7 +59,18 @@ def db_status():
             'settings': {
                 'api_key_configured': bool(settings and settings.octav_api_key),
                 'sync_interval': settings.sync_interval_hours if settings else None
-            } if settings else None
+            } if settings else None,
+            'manual_balance': {
+                'table_exists': manual_balance_error is None,
+                'count': len(manual_balances) if manual_balance_error is None else 0,
+                'error': manual_balance_error,
+                'sample': [{
+                    'id': mb.id,
+                    'wallet_id': mb.wallet_id,
+                    'balance': mb.balance,
+                    'timestamp': mb.timestamp.isoformat() if mb.timestamp else None
+                } for mb in manual_balances[:5]] if manual_balance_error is None else []
+            }
         }), 200
     
     except Exception as e:
